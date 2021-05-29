@@ -37,9 +37,10 @@ export default function globalStyles() {
 
         html, body {
             font-family: Roboto, Arial, sans-serif;
-            overflow-y: hidden;
+            overflow: hidden;
             margin: 0;
             padding: 0;
+            height: 100%;
             color: ${theme.colors.text};
             background-color: ${theme.colors.background};
         }
