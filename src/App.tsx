@@ -1,7 +1,9 @@
+/* eslint-disable no-param-reassign */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { css, Global, ThemeProvider } from '@emotion/react';
-import React, { useState } from 'react';
+import produce from 'immer';
+import React, { useEffect, useRef, useState } from 'react';
 import Card from './components/Card';
 import globalStyles from './styles/global';
 import theme from './styles/theme';
@@ -116,7 +118,7 @@ interface GameState {
     }[];
     grid: ({
         cardId: string;
-        playerIndex: string;
+        playerIndex: number;
     } | null)[];
 }
 
@@ -126,6 +128,10 @@ export interface CardType {
     image: string;
 }
 
+const gridSize = 3;
+
+const waitForMs = (delay: number) => new Promise(resolve => setTimeout(resolve, delay));
+
 export default function App() {
     const [gameState, setGameState] = useState<GameState>(() => {
         return {
@@ -133,46 +139,103 @@ export default function App() {
             startingOffset: 0,
             players: [
                 {
+                    name: 'Tom',
                     selectedCardIndex: null,
                     deck: cards.slice(0, 5).map(card => ({
                         cardId: card.id,
                     })),
                 },
                 {
+                    name: 'Evil Computer',
                     isComputer: true,
+                    selectedCardIndex: null,
                     deck: cards.slice(5, 10).map(card => ({
                         cardId: card.id,
                     })),
                 },
             ],
-            grid: Array.from({ length: 3 * 3 }),
+            grid: Array.from({ length: gridSize * gridSize }),
         };
     });
+    const updatedTurnIndex = useRef(gameState.turnIndex);
+
+    const currentPlayerIndex = (gameState.turnIndex + gameState.startingOffset) % gameState.players.length;
 
     function selectCard(deckIndex: number) {
-        // TODO: improve state management
-        setGameState(current => ({
-            ...current,
-            players: [
-                {
-                    ...current.players[0],
-                    selectedCardIndex: deckIndex,
-                },
-                {
-                    ...current.players[1],
-                },
-            ],
-        }));
+        setGameState(
+            produce(draft => {
+                draft.players[currentPlayerIndex].selectedCardIndex = deckIndex;
+            })
+        );
     }
 
-    function placeDeckCardOnGrid(gridIndex: number) {
-        const { selectedCardIndex } = gameState.players[0];
-        setGameState(current => ({
-            ...current,
-            // grid:
-            // TODO: place on grid + remove from player deck
-        }));
+    function getCurrentPlayer() {
+        return gameState.players[currentPlayerIndex];
     }
+
+    function placeDeckCardOnGrid(gridIndex: number, cardIndex?: number) {
+        if (gameState.grid[gridIndex] != null) return;
+
+        // TODO: add getCurrentPlayer() ?
+        let { selectedCardIndex } = getCurrentPlayer();
+        if (cardIndex != null) selectedCardIndex = cardIndex;
+
+        if (selectedCardIndex == null) return;
+        setGameState(
+            produce(draft => {
+                const card = getCurrentPlayer().deck[selectedCardIndex];
+                draft.grid[gridIndex] = {
+                    ...card,
+                    playerIndex: currentPlayerIndex,
+                };
+                draft.players[currentPlayerIndex].deck.splice(selectedCardIndex, 1);
+                draft.players[currentPlayerIndex].selectedCardIndex = null;
+
+                draft.turnIndex += 1;
+            })
+        );
+    }
+
+    function findFreeIndexOnGrid() {
+        const freeIndices = [];
+        gameState.grid.forEach((item, index) => {
+            if (item == null) freeIndices.push(index);
+        });
+        const freeIndex = Math.floor(freeIndices.length * Math.random());
+        return freeIndices[freeIndex];
+    }
+
+    // handle turn logic
+    useEffect(() => {
+        if (updatedTurnIndex.current === gameState.turnIndex) return;
+        /* eslint-disable no-console */
+        console.log('new turn:', gameState.turnIndex);
+        console.log('current player:', getCurrentPlayer().name);
+        /* eslint-enable no-console */
+
+        (async () => {
+            // TODO: introduce `locked` state
+            const currentPlayer = getCurrentPlayer();
+            if (currentPlayer.isComputer) {
+                const selectedCardIndex = Math.floor(currentPlayer.deck.length * Math.random());
+                selectCard(selectedCardIndex);
+                await waitForMs(700);
+
+                const freeIndex = findFreeIndexOnGrid();
+                placeDeckCardOnGrid(freeIndex, selectedCardIndex);
+                // TODO: evaluate neighbor cards and ranks
+            } else {
+                // human player turn
+            }
+        })();
+    });
+
+    // sync updated turn index with game sate
+    useEffect(() => {
+        // it's important that this useEffect callback happens *after*
+        // the useEffect with the actual turn logic.
+        updatedTurnIndex.current = gameState.turnIndex;
+    }, [gameState.turnIndex]);
 
     return (
         <ThemeProvider theme={theme}>
@@ -183,7 +246,13 @@ export default function App() {
                 <div css={styles.deckLeft}>
                     <div>
                         {gameState.players[0].deck.map((item, index) => (
-                            <Card deckIndex={index} card={getCardById(item.cardId)} onClick={selectCard} />
+                            <Card
+                                key={item.cardId}
+                                deckIndex={index}
+                                card={getCardById(item.cardId)}
+                                selected={gameState.players[0].selectedCardIndex === index}
+                                onClick={selectCard}
+                            />
                         ))}
                     </div>
                 </div>
@@ -191,14 +260,21 @@ export default function App() {
                 <div css={styles.deckRight}>
                     <div>
                         {gameState.players[1].deck.map((item, index) => (
-                            <Card deckIndex={index} card={getCardById(item.cardId)} />
+                            <Card
+                                key={item.cardId}
+                                deckIndex={index}
+                                card={getCardById(item.cardId)}
+                                selected={gameState.players[1].selectedCardIndex === index}
+                                covered
+                            />
                         ))}
                     </div>
                 </div>
 
                 <main css={styles.grid}>
                     {gameState.grid.map((item, index) => (
-                        <div onClick={() => placeDeckCardOnGrid(index)}>
+                        // eslint-disable-next-line react/no-array-index-key
+                        <div key={index} onClick={() => placeDeckCardOnGrid(index)}>
                             {item && <Card card={getCardById(item.cardId)} />}
                         </div>
                     ))}

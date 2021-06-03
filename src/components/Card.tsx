@@ -10,7 +10,8 @@ const styles = {
         // TODO: extract to theme variable
         width: 10em;
         height: 10em;
-        perspective: 500px;
+        perspective: 600px;
+        user-select: none;
     `,
     content: css`
         position: absolute;
@@ -31,6 +32,7 @@ const styles = {
         box-sizing: border-box;
         font-size: 2em;
         backface-visibility: hidden;
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.25);
     `,
     image: css`
         position: absolute;
@@ -40,26 +42,33 @@ const styles = {
         width: 50%;
         height: 50%;
         transform: translate(-50%, -50%);
+        pointer-events: none;
     `,
     ranks: css`
         span {
             position: absolute;
+            padding: 0.2em;
+            text-shadow: 0 0 4px rgba(255, 255, 255, 0.75);
         }
         span:nth-of-type(1) {
             left: 50%;
             top: 0;
+            transform: translate(-50%, 0);
         }
         span:nth-of-type(2) {
             right: 0%;
             top: 50%;
+            transform: translate(0, -50%);
         }
         span:nth-of-type(3) {
             left: 50%;
             bottom: 0;
+            transform: translate(-50%, 0);
         }
         span:nth-of-type(4) {
             left: 0%;
             top: 50%;
+            transform: translate(0, -50%);
         }
     `,
     front: css`
@@ -77,18 +86,23 @@ interface Props {
     card: CardType;
     deckIndex?: number;
     covered?: boolean;
+    selected?: boolean;
     onClick?: (index: number) => void;
 }
 
-export default function Card({ card, deckIndex, covered, onClick }: Props) {
+export default function Card({ card, deckIndex, covered, selected, onClick }: Props) {
+    const animation = {
+        rotateY: covered ? 180 : 0,
+        x: selected ? 20 : 0,
+    };
+
     function handleClick() {
-        onClick(deckIndex);
+        onClick?.(deckIndex);
     }
 
     return (
-        // eslint-disable-next-line jsx-a11y/interactive-supports-focus
         <div role="button" css={styles.root} onClick={handleClick}>
-            <motion.div css={styles.content} whileTap={{ rotateY: 180 }}>
+            <motion.div css={styles.content} animate={animation}>
                 <div css={[styles.side, styles.front]}>
                     <div css={styles.ranks}>
                         {card.ranks.map((rank, index) => (

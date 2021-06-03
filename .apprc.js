@@ -30,6 +30,7 @@ module.exports = {
         },
         eslint: {
             rules: {
+                'no-unused-expressions': 'off',
                 'prefer-template': 'off',
                 'import/prefer-default-export': 'off',
                 '@typescript-eslint/ban-ts-comment': 'off',
@@ -38,6 +39,7 @@ module.exports = {
                 'react/destructuring-assignment': 'off',
                 // conflicts in some cases with prettier
                 'react/jsx-wrap-multilines': 'off',
+                'jsx-a11y/interactive-supports-focus': 'off',
             },
         },
         prettier: {
