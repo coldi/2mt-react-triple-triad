@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { css } from '@emotion/react';
-import { motion } from 'framer-motion';
+import { HTMLMotionProps, motion } from 'framer-motion';
 import { useRef } from 'react';
 import { CardType } from '../App';
 
@@ -96,25 +96,30 @@ export default function Card({ card, deckIndex, covered, selected, onClick }: Pr
     const alignment =
         element.current?.getBoundingClientRect().left < window.innerWidth / 2 ? 1 : -1;
 
-    const gridAnimation = {
+    const gridAnimation: HTMLMotionProps<'div'> = {
         initial: {
-            y: -window.innerHeight / 1.5,
-            x: -100 * alignment,
+            // TODO: alignment doesn't work here
+            x: 0,
+            y: -window.innerHeight,
         },
         animate: {
             x: 0,
             y: 0,
         },
+        transition: {
+            stiffness: 150,
+            delay: 0.25,
+        },
     };
 
-    const deckAnimation = {
+    const deckAnimation: HTMLMotionProps<'div'> = {
         animate: {
             rotateY: covered ? 180 : 0,
             x: selected ? 20 * alignment : 0,
         },
         exit: {
-            y: -window.innerHeight / 1.5,
             x: 100 * alignment,
+            y: -window.innerHeight,
         },
     };
 

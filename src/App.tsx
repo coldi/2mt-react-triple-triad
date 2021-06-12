@@ -256,20 +256,18 @@ export default function App() {
         /* eslint-enable no-console */
 
         (async () => {
-            // TODO: introduce `locked` state
             const currentPlayer = getCurrentPlayer();
             if (currentPlayer.isComputer) {
                 const selectedCardIndex = Math.floor(currentPlayer.deck.length * Math.random());
                 selectCard(selectedCardIndex);
 
                 setGameState(current => ({ ...current, locked: true }));
-                await waitForMs(700);
+                await waitForMs(1000);
 
                 const freeIndex = findFreeIndexOnGrid();
                 if (freeIndex >= 0) {
                     placeDeckCardOnGrid(freeIndex, selectedCardIndex);
                     setGameState(current => ({ ...current, locked: false }));
-                    // TODO: evaluate neighbor cards and ranks
                 } else {
                     // no free index remaining. game end?
                 }
