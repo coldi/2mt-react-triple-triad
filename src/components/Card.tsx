@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { css } from '@emotion/react';
 import { motion } from 'framer-motion';
+import { useRef } from 'react';
 import { CardType } from '../App';
 
 // shamelessly copied from: https://codepen.io/edeesims/pen/iGDzk
@@ -91,18 +92,41 @@ interface Props {
 }
 
 export default function Card({ card, deckIndex, covered, selected, onClick }: Props) {
-    const animation = {
-        rotateY: covered ? 180 : 0,
-        x: selected ? 20 : 0,
+    const element = useRef<HTMLDivElement>();
+    const alignment =
+        element.current?.getBoundingClientRect().left < window.innerWidth / 2 ? 1 : -1;
+
+    const gridAnimation = {
+        initial: {
+            y: -window.innerHeight / 1.5,
+            x: -100 * alignment,
+        },
+        animate: {
+            x: 0,
+            y: 0,
+        },
     };
+
+    const deckAnimation = {
+        animate: {
+            rotateY: covered ? 180 : 0,
+            x: selected ? 20 * alignment : 0,
+        },
+        exit: {
+            y: -window.innerHeight / 1.5,
+            x: 100 * alignment,
+        },
+    };
+
+    const animation = deckIndex == null ? gridAnimation : deckAnimation;
 
     function handleClick() {
         onClick?.(deckIndex);
     }
 
     return (
-        <div role="button" css={styles.root} onClick={handleClick}>
-            <motion.div css={styles.content} animate={animation}>
+        <div ref={element} role="button" css={styles.root} onClick={handleClick}>
+            <motion.div css={styles.content} {...animation}>
                 <div css={[styles.side, styles.front]}>
                     <div css={styles.ranks}>
                         {card.ranks.map((rank, index) => (

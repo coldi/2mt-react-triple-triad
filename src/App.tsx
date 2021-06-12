@@ -1,9 +1,11 @@
+/* eslint-disable no-useless-return */
 /* eslint-disable no-param-reassign */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { css, Global, ThemeProvider } from '@emotion/react';
+import { AnimatePresence } from 'framer-motion';
 import produce from 'immer';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Card from './components/Card';
 import globalStyles from './styles/global';
 import theme from './styles/theme';
@@ -110,6 +112,7 @@ function getCardById(id: string) {
 interface GameState {
     turnIndex: number;
     startingOffset: number;
+    locked: boolean;
     players: {
         deck: { cardId: string }[];
         selectedCardIndex?: number;
@@ -137,6 +140,7 @@ export default function App() {
         return {
             turnIndex: 0,
             startingOffset: 0,
+            locked: false,
             players: [
                 {
                     name: 'Tom',
@@ -157,7 +161,6 @@ export default function App() {
             grid: Array.from({ length: gridSize * gridSize }),
         };
     });
-    const updatedTurnIndex = useRef(gameState.turnIndex);
 
     const currentPlayerIndex = (gameState.turnIndex + gameState.startingOffset) % gameState.players.length;
 
@@ -173,10 +176,25 @@ export default function App() {
         return gameState.players[currentPlayerIndex];
     }
 
+    function getNeighborsOnGrid(gridIndex: number) {
+        const leftIndex = gridIndex - 1;
+        const left = gridIndex % gridSize === 0 ? null : leftIndex;
+
+        const rightIndex = gridIndex + 1;
+        const right = gridIndex % gridSize === gridSize - 1 ? null : rightIndex;
+
+        const topIndex = gridIndex - gridSize;
+        const top = topIndex < 0 ? null : topIndex;
+
+        const bottomIndex = gridIndex + gridSize;
+        const bottom = bottomIndex >= gridSize * gridSize ? null : bottomIndex;
+
+        return [top, right, bottom, left];
+    }
+
     function placeDeckCardOnGrid(gridIndex: number, cardIndex?: number) {
         if (gameState.grid[gridIndex] != null) return;
 
-        // TODO: add getCurrentPlayer() ?
         let { selectedCardIndex } = getCurrentPlayer();
         if (cardIndex != null) selectedCardIndex = cardIndex;
 
@@ -191,6 +209,21 @@ export default function App() {
                 draft.players[currentPlayerIndex].deck.splice(selectedCardIndex, 1);
                 draft.players[currentPlayerIndex].selectedCardIndex = null;
 
+                const neighbors = getNeighborsOnGrid(gridIndex);
+                neighbors.forEach((neighborIndex, directionIndex) => {
+                    if (neighborIndex == null) return;
+                    const neighborCard = gameState.grid[neighborIndex];
+                    if (neighborCard == null) return;
+                    const ownRankIndex = directionIndex;
+                    const neigborRankIndex = (directionIndex + 2) % 4;
+                    const ownRank = getCardById(card.cardId).ranks[ownRankIndex];
+                    const neigborRank = getCardById(neighborCard.cardId).ranks[neigborRankIndex];
+                    if (ownRank > neigborRank) {
+                        // TODO: take over neighbor card
+                        console.log('card on', neighborIndex, 'taken over!!');
+                    }
+                });
+
                 draft.turnIndex += 1;
             })
         );
@@ -201,13 +234,22 @@ export default function App() {
         gameState.grid.forEach((item, index) => {
             if (item == null) freeIndices.push(index);
         });
+        // no free index available?
+        if (freeIndices.length === 0) return -1;
+
         const freeIndex = Math.floor(freeIndices.length * Math.random());
         return freeIndices[freeIndex];
     }
 
-    // handle turn logic
+    function handleGridClick(gridIndex: number) {
+        if (!gameState.locked) {
+            placeDeckCardOnGrid(gridIndex);
+        }
+    }
+
+    // handle turn logic and run only when turnIndex changed
     useEffect(() => {
-        if (updatedTurnIndex.current === gameState.turnIndex) return;
+        // if (updatedTurnIndex.current === gameState.turnIndex) return;
         /* eslint-disable no-console */
         console.log('new turn:', gameState.turnIndex);
         console.log('current player:', getCurrentPlayer().name);
@@ -219,22 +261,23 @@ export default function App() {
             if (currentPlayer.isComputer) {
                 const selectedCardIndex = Math.floor(currentPlayer.deck.length * Math.random());
                 selectCard(selectedCardIndex);
+
+                setGameState(current => ({ ...current, locked: true }));
                 await waitForMs(700);
 
                 const freeIndex = findFreeIndexOnGrid();
-                placeDeckCardOnGrid(freeIndex, selectedCardIndex);
-                // TODO: evaluate neighbor cards and ranks
+                if (freeIndex >= 0) {
+                    placeDeckCardOnGrid(freeIndex, selectedCardIndex);
+                    setGameState(current => ({ ...current, locked: false }));
+                    // TODO: evaluate neighbor cards and ranks
+                } else {
+                    // no free index remaining. game end?
+                }
             } else {
                 // human player turn
             }
         })();
-    });
-
-    // sync updated turn index with game sate
-    useEffect(() => {
-        // it's important that this useEffect callback happens *after*
-        // the useEffect with the actual turn logic.
-        updatedTurnIndex.current = gameState.turnIndex;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gameState.turnIndex]);
 
     return (
@@ -244,7 +287,7 @@ export default function App() {
                 <p>Let&apos;s start with Triple Triad in React</p>
 
                 <div css={styles.deckLeft}>
-                    <div>
+                    <AnimatePresence>
                         {gameState.players[0].deck.map((item, index) => (
                             <Card
                                 key={item.cardId}
@@ -254,11 +297,11 @@ export default function App() {
                                 onClick={selectCard}
                             />
                         ))}
-                    </div>
+                    </AnimatePresence>
                 </div>
 
                 <div css={styles.deckRight}>
-                    <div>
+                    <AnimatePresence>
                         {gameState.players[1].deck.map((item, index) => (
                             <Card
                                 key={item.cardId}
@@ -268,13 +311,13 @@ export default function App() {
                                 covered
                             />
                         ))}
-                    </div>
+                    </AnimatePresence>
                 </div>
 
                 <main css={styles.grid}>
                     {gameState.grid.map((item, index) => (
                         // eslint-disable-next-line react/no-array-index-key
-                        <div key={index} onClick={() => placeDeckCardOnGrid(index)}>
+                        <div key={index} onClick={() => handleGridClick(index)}>
                             {item && <Card card={getCardById(item.cardId)} />}
                         </div>
                     ))}
