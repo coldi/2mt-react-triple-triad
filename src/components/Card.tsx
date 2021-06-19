@@ -4,6 +4,8 @@ import { HTMLMotionProps, motion } from 'framer-motion';
 import { useRef } from 'react';
 import { CardType } from '../App';
 
+const playerColors = ['#ACF', '#FBA'];
+
 // shamelessly copied from: https://codepen.io/edeesims/pen/iGDzk
 const styles = {
     root: css`
@@ -72,9 +74,9 @@ const styles = {
             transform: translate(0, -50%);
         }
     `,
-    front: css`
+    front: (playerIndex: number) => css`
         padding: 1rem;
-        background: white;
+        background: ${playerColors[playerIndex]};
     `,
     back: css`
         color: white;
@@ -85,13 +87,23 @@ const styles = {
 
 interface Props {
     card: CardType;
-    deckIndex?: number;
+    playerIndex: number;
+    deckOrderIndex?: number;
     covered?: boolean;
     selected?: boolean;
     onClick?: (index: number) => void;
+    onPlacedOnGrid?: () => void;
 }
 
-export default function Card({ card, deckIndex, covered, selected, onClick }: Props) {
+export default function Card({
+    card,
+    playerIndex,
+    deckOrderIndex,
+    covered,
+    selected,
+    onClick,
+    onPlacedOnGrid,
+}: Props) {
     const element = useRef<HTMLDivElement>();
     const alignment =
         element.current?.getBoundingClientRect().left < window.innerWidth / 2 ? 1 : -1;
@@ -123,16 +135,24 @@ export default function Card({ card, deckIndex, covered, selected, onClick }: Pr
         },
     };
 
-    const animation = deckIndex == null ? gridAnimation : deckAnimation;
+    const animation = deckOrderIndex == null ? gridAnimation : deckAnimation;
 
     function handleClick() {
-        onClick?.(deckIndex);
+        onClick?.(deckOrderIndex);
+    }
+
+    function handlePlacedOnGrid() {
+        onPlacedOnGrid?.();
     }
 
     return (
         <div ref={element} role="button" css={styles.root} onClick={handleClick}>
-            <motion.div css={styles.content} {...animation}>
-                <div css={[styles.side, styles.front]}>
+            <motion.div
+                css={styles.content}
+                {...animation}
+                onAnimationComplete={handlePlacedOnGrid}
+            >
+                <div css={[styles.side, styles.front(playerIndex)]}>
                     <div css={styles.ranks}>
                         {card.ranks.map((rank, index) => (
                             // eslint-disable-next-line react/no-array-index-key

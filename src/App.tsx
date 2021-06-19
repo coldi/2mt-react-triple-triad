@@ -202,29 +202,41 @@ export default function App() {
         setGameState(
             produce(draft => {
                 const card = getCurrentPlayer().deck[selectedCardIndex];
+                // place deck card on grid
                 draft.grid[gridIndex] = {
                     ...card,
                     playerIndex: currentPlayerIndex,
                 };
+                // remove card from deck
                 draft.players[currentPlayerIndex].deck.splice(selectedCardIndex, 1);
+                // reset selected card
                 draft.players[currentPlayerIndex].selectedCardIndex = null;
+            })
+        );
+    }
 
+    function takeOverNeighborCards(gridIndex: number) {
+        setGameState(
+            produce(draft => {
+                const gridItem = gameState.grid[gridIndex];
+                // take over neighbor card logic
                 const neighbors = getNeighborsOnGrid(gridIndex);
                 neighbors.forEach((neighborIndex, directionIndex) => {
                     if (neighborIndex == null) return;
-                    const neighborCard = gameState.grid[neighborIndex];
+                    const neighborCard = draft.grid[neighborIndex];
                     if (neighborCard == null) return;
                     const ownRankIndex = directionIndex;
-                    const neigborRankIndex = (directionIndex + 2) % 4;
-                    const ownRank = getCardById(card.cardId).ranks[ownRankIndex];
-                    const neigborRank = getCardById(neighborCard.cardId).ranks[neigborRankIndex];
-                    if (ownRank > neigborRank) {
-                        // TODO: take over neighbor card
-                        console.log('card on', neighborIndex, 'taken over!!');
+                    const neighborRankIndex = (directionIndex + 2) % 4;
+                    const ownRank = getCardById(gridItem.cardId).ranks[ownRankIndex];
+                    const neighborRank = getCardById(neighborCard.cardId).ranks[neighborRankIndex];
+                    if (ownRank > neighborRank) {
+                        neighborCard.playerIndex = currentPlayerIndex;
                     }
                 });
 
                 draft.turnIndex += 1;
+
+                // TODO: figure out when game is over and who has won
             })
         );
     }
@@ -289,7 +301,8 @@ export default function App() {
                         {gameState.players[0].deck.map((item, index) => (
                             <Card
                                 key={item.cardId}
-                                deckIndex={index}
+                                playerIndex={0}
+                                deckOrderIndex={index}
                                 card={getCardById(item.cardId)}
                                 selected={gameState.players[0].selectedCardIndex === index}
                                 onClick={selectCard}
@@ -303,7 +316,8 @@ export default function App() {
                         {gameState.players[1].deck.map((item, index) => (
                             <Card
                                 key={item.cardId}
-                                deckIndex={index}
+                                playerIndex={1}
+                                deckOrderIndex={index}
                                 card={getCardById(item.cardId)}
                                 selected={gameState.players[1].selectedCardIndex === index}
                                 covered
@@ -313,10 +327,16 @@ export default function App() {
                 </div>
 
                 <main css={styles.grid}>
-                    {gameState.grid.map((item, index) => (
+                    {gameState.grid.map((gridItem, gridIndex) => (
                         // eslint-disable-next-line react/no-array-index-key
-                        <div key={index} onClick={() => handleGridClick(index)}>
-                            {item && <Card card={getCardById(item.cardId)} />}
+                        <div key={gridIndex} onClick={() => handleGridClick(gridIndex)}>
+                            {gridItem && (
+                                <Card
+                                    card={getCardById(gridItem.cardId)}
+                                    playerIndex={gridItem.playerIndex}
+                                    onPlacedOnGrid={() => takeOverNeighborCards(gridIndex)}
+                                />
+                            )}
                         </div>
                     ))}
                 </main>
