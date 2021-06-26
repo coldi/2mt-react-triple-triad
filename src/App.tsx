@@ -6,7 +6,9 @@ import { css, Global, ThemeProvider } from '@emotion/react';
 import { AnimatePresence } from 'framer-motion';
 import produce from 'immer';
 import React, { useEffect, useState } from 'react';
-import Card from './components/Card';
+import DeckCard from './components/DeckCard';
+import EndScreen from './components/EndScreen';
+import GridCard from './components/GridCard';
 import globalStyles from './styles/global';
 import theme from './styles/theme';
 
@@ -109,10 +111,11 @@ function getCardById(id: string) {
     return cards.find(card => card.id === id);
 }
 
-interface GameState {
+export interface GameState {
     turnIndex: number;
     startingOffset: number;
     locked: boolean;
+    showEndScreen: boolean;
     players: {
         deck: { cardId: string }[];
         selectedCardIndex?: number;
@@ -135,32 +138,37 @@ const gridSize = 3;
 
 const waitForMs = (delay: number) => new Promise(resolve => setTimeout(resolve, delay));
 
+const getInitialState = (): GameState => {
+    const shuffledCards = cards.slice().sort(() => 0.5 - Math.random());
+
+    return {
+        turnIndex: 0,
+        startingOffset: Math.round(Math.random()),
+        locked: false,
+        showEndScreen: false,
+        players: [
+            {
+                name: 'Tom',
+                selectedCardIndex: null,
+                deck: shuffledCards.slice(0, 5).map(card => ({
+                    cardId: card.id,
+                })),
+            },
+            {
+                name: 'Evil Computer',
+                isComputer: true,
+                selectedCardIndex: null,
+                deck: shuffledCards.slice(5, 10).map(card => ({
+                    cardId: card.id,
+                })),
+            },
+        ],
+        grid: Array.from({ length: gridSize * gridSize }),
+    };
+};
+
 export default function App() {
-    const [gameState, setGameState] = useState<GameState>(() => {
-        return {
-            turnIndex: 0,
-            startingOffset: 0,
-            locked: false,
-            players: [
-                {
-                    name: 'Tom',
-                    selectedCardIndex: null,
-                    deck: cards.slice(0, 5).map(card => ({
-                        cardId: card.id,
-                    })),
-                },
-                {
-                    name: 'Evil Computer',
-                    isComputer: true,
-                    selectedCardIndex: null,
-                    deck: cards.slice(5, 10).map(card => ({
-                        cardId: card.id,
-                    })),
-                },
-            ],
-            grid: Array.from({ length: gridSize * gridSize }),
-        };
-    });
+    const [gameState, setGameState] = useState<GameState>(getInitialState);
 
     const currentPlayerIndex = (gameState.turnIndex + gameState.startingOffset) % gameState.players.length;
 
@@ -235,8 +243,6 @@ export default function App() {
                 });
 
                 draft.turnIndex += 1;
-
-                // TODO: figure out when game is over and who has won
             })
         );
     }
@@ -251,6 +257,10 @@ export default function App() {
 
         const freeIndex = Math.floor(freeIndices.length * Math.random());
         return freeIndices[freeIndex];
+    }
+
+    function restartGame() {
+        setGameState(getInitialState);
     }
 
     function handleGridClick(gridIndex: number) {
@@ -268,24 +278,32 @@ export default function App() {
         /* eslint-enable no-console */
 
         (async () => {
+            setGameState(current => ({ ...current, locked: true }));
+
+            if (findFreeIndexOnGrid() === -1) {
+                await waitForMs(1000);
+                setGameState(current => ({ ...current, showEndScreen: true }));
+                return;
+            }
+
             const currentPlayer = getCurrentPlayer();
             if (currentPlayer.isComputer) {
                 const selectedCardIndex = Math.floor(currentPlayer.deck.length * Math.random());
                 selectCard(selectedCardIndex);
 
-                setGameState(current => ({ ...current, locked: true }));
                 await waitForMs(1000);
 
                 const freeIndex = findFreeIndexOnGrid();
                 if (freeIndex >= 0) {
                     placeDeckCardOnGrid(freeIndex, selectedCardIndex);
-                    setGameState(current => ({ ...current, locked: false }));
                 } else {
                     // no free index remaining. game end?
                 }
             } else {
                 // human player turn
             }
+
+            setGameState(current => ({ ...current, locked: false }));
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [gameState.turnIndex]);
@@ -299,7 +317,7 @@ export default function App() {
                 <div css={styles.deckLeft}>
                     <AnimatePresence>
                         {gameState.players[0].deck.map((item, index) => (
-                            <Card
+                            <DeckCard
                                 key={item.cardId}
                                 playerIndex={0}
                                 deckOrderIndex={index}
@@ -314,7 +332,7 @@ export default function App() {
                 <div css={styles.deckRight}>
                     <AnimatePresence>
                         {gameState.players[1].deck.map((item, index) => (
-                            <Card
+                            <DeckCard
                                 key={item.cardId}
                                 playerIndex={1}
                                 deckOrderIndex={index}
@@ -331,7 +349,7 @@ export default function App() {
                         // eslint-disable-next-line react/no-array-index-key
                         <div key={gridIndex} onClick={() => handleGridClick(gridIndex)}>
                             {gridItem && (
-                                <Card
+                                <GridCard
                                     card={getCardById(gridItem.cardId)}
                                     playerIndex={gridItem.playerIndex}
                                     onPlacedOnGrid={() => takeOverNeighborCards(gridIndex)}
@@ -340,6 +358,8 @@ export default function App() {
                         </div>
                     ))}
                 </main>
+
+                {gameState.showEndScreen && <EndScreen gameState={gameState} onRestart={restartGame} />}
             </div>
         </ThemeProvider>
     );

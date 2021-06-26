@@ -42,7 +42,8 @@ export default function globalStyles() {
             padding: 0;
             height: 100%;
             color: ${theme.colors.text};
-            background-color: ${theme.colors.background};
+            background: ${theme.colors.background} url('/assets/backgrounds/redbeech.jpg')
+                repeat;
         }
         a {
             text-decoration: none;

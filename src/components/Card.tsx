@@ -1,10 +1,10 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { css } from '@emotion/react';
 import { HTMLMotionProps, motion } from 'framer-motion';
-import { useRef } from 'react';
+import { forwardRef, MouseEvent } from 'react';
 import { CardType } from '../App';
 
-const playerColors = ['#ACF', '#FBA'];
+const playerColors = ['#9BF', '#F98'];
 
 // shamelessly copied from: https://codepen.io/edeesims/pen/iGDzk
 const styles = {
@@ -50,7 +50,8 @@ const styles = {
     ranks: css`
         span {
             position: absolute;
-            padding: 0.2em;
+            padding: 0.1em;
+            line-height: 1;
             text-shadow: 0 0 4px rgba(255, 255, 255, 0.75);
         }
         span:nth-of-type(1) {
@@ -75,83 +76,35 @@ const styles = {
         }
     `,
     front: (playerIndex: number) => css`
-        padding: 1rem;
-        background: ${playerColors[playerIndex]};
+        border: 0.75rem ${playerColors[playerIndex]} solid;
+        // background: ${playerColors[playerIndex]};
+        background: white;
     `,
     back: css`
         color: white;
         background: gray;
+        background: linear-gradient(
+            135deg,
+            rgba(140, 140, 140, 1) 0%,
+            rgba(100, 100, 100, 1) 100%
+        );
         transform: rotateY(180deg);
     `,
 };
 
-interface Props {
+interface Props extends HTMLMotionProps<'div'> {
     card: CardType;
     playerIndex: number;
-    deckOrderIndex?: number;
-    covered?: boolean;
-    selected?: boolean;
-    onClick?: (index: number) => void;
-    onPlacedOnGrid?: () => void;
+    onClick?: (event: MouseEvent) => void;
 }
 
-export default function Card({
-    card,
-    playerIndex,
-    deckOrderIndex,
-    covered,
-    selected,
-    onClick,
-    onPlacedOnGrid,
-}: Props) {
-    const element = useRef<HTMLDivElement>();
-    const alignment =
-        element.current?.getBoundingClientRect().left < window.innerWidth / 2 ? 1 : -1;
-
-    const gridAnimation: HTMLMotionProps<'div'> = {
-        initial: {
-            // TODO: alignment doesn't work here
-            x: 0,
-            y: -window.innerHeight,
-        },
-        animate: {
-            x: 0,
-            y: 0,
-        },
-        transition: {
-            stiffness: 150,
-            delay: 0.25,
-        },
-    };
-
-    const deckAnimation: HTMLMotionProps<'div'> = {
-        animate: {
-            rotateY: covered ? 180 : 0,
-            x: selected ? 20 * alignment : 0,
-        },
-        exit: {
-            x: 100 * alignment,
-            y: -window.innerHeight,
-        },
-    };
-
-    const animation = deckOrderIndex == null ? gridAnimation : deckAnimation;
-
-    function handleClick() {
-        onClick?.(deckOrderIndex);
-    }
-
-    function handlePlacedOnGrid() {
-        onPlacedOnGrid?.();
-    }
-
+export default forwardRef<HTMLDivElement, Props>(function Card(
+    { card, playerIndex, onClick, ...props }: Props,
+    forwardedRef
+) {
     return (
-        <div ref={element} role="button" css={styles.root} onClick={handleClick}>
-            <motion.div
-                css={styles.content}
-                {...animation}
-                onAnimationComplete={handlePlacedOnGrid}
-            >
+        <div role="button" css={styles.root} onClick={onClick}>
+            <motion.div ref={forwardedRef} css={styles.content} {...props}>
                 <div css={[styles.side, styles.front(playerIndex)]}>
                     <div css={styles.ranks}>
                         {card.ranks.map((rank, index) => (
@@ -161,8 +114,8 @@ export default function Card({
                     </div>
                     <img css={styles.image} src={card.image} alt={card.id} />
                 </div>
-                <div css={[styles.side, styles.back]}>Back</div>
+                <div css={[styles.side, styles.back]} />
             </motion.div>
         </div>
     );
-}
+});
